@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABUNDA CONTABLE | Experto NIIF</title>
+    
+    <!-- Librerías -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        fin: {
+                            dark: '#0f172a',
+                            emerald: '#10b981', // Verde Financiero
+                            emeraldDark: '#047857',
+                            light: '#f8fafc',
+                            panel: '#ffffff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f1f5f9; color: #334155; }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Estilos Markdown */
+        .prose h1 { font-size: 1.5em; font-weight: 800; color: #064e3b; margin-bottom: 0.5em; border-bottom: 2px solid #10b981; padding-bottom: 5px; }
+        .prose h2 { font-size: 1.25em; font-weight: 700; color: #065f46; margin-top: 1em; margin-bottom: 0.5em; }
+        .prose strong { color: #0f172a; font-weight: 700; }
+        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .prose li { margin-bottom: 0.25em; }
+        .prose p { margin-bottom: 0.75em; line-height: 1.6; }
+        .prose table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.9em; }
+        .prose th { background: #f0fdf4; border: 1px solid #d1fae5; padding: 8px; text-align: left; color: #065f46; }
+        .prose td { border: 1px solid #e2e8f0; padding: 8px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden font-sans">
+    <div id="root" class="h-full flex flex-col"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ==========================================
+        // CONFIGURACIÓN TÁCTICA
+        // ==========================================
+        
+        // URL DE SU BACKEND EN HEROKU (Use el que tenga activo con OpenAI)
+        const DEFAULT_BACKEND_URL = "https://abundalegal-c960c33a1447.herokuapp.com"; 
+
+        // CONFIGURACIÓN FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyC8Qqq7F1kGvaNlTzL5gRQWTdMBVjuEamQ", 
+            authDomain: "abunda-ai.firebaseapp.com",
+            projectId: "abunda-ai",
+            storageBucket: "abunda-ai.firebasestorage.app",
+            messagingSenderId: "G-4XZ8WVKSL1",
+            appId: "1:833878539166:web:01a3726d456efd3bbb348f"
+        };
+
+        let db = null;
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+        } catch(e) { console.error("Firebase Error:", e); }
+
+        // ==========================================
+        // COMPONENTES
+        // ==========================================
+
+        const LoginScreen = ({ onLogin }) => {
+            const [email, setEmail] = useState("");
+            const [password, setPassword] = useState("");
+            const [loading, setLoading] = useState(false);
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                try {
+                    const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
+                    onLogin(cred.user);
+                } catch (error) {
+                    alert("Credenciales inválidas.");
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="w-full h-full flex items-center justify-center bg-slate-900 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-10"></div>
+                    
+                    <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md relative z-10 fade-in">
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-fin-emerald rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-emerald-200">
+                                <i className="ph ph-chart-bar text-3xl text-white"></i>
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">ABUNDA <span className="text-fin-emerald">CONTABLE</span></h1>
+                            <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Sistema Experto NIIF / IFRS</p>
+                        </div>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:border-fin-emerald focus:ring-1 focus:ring-fin-emerald transition" placeholder="cpa@firma.com" />
+                            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:border-fin-emerald focus:ring-1 focus:ring-fin-emerald transition" placeholder="••••••••" />
+                            <button disabled={loading} className="w-full bg-fin-emerald hover:bg-fin-emeraldDark text-white font-bold py-3 rounded-lg transition shadow-md flex justify-center items-center gap-2">
+                                {loading ? <i className="ph ph-spinner animate-spin"></i> : <i className="ph ph-sign-in"></i>} Acceder
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ user, onLogout }) => {
+            const [query, setQuery] = useState("");
+            const [messages, setMessages] = useState([
+                { role: 'ai', content: `Bienvenido, Contador.\nSoy su experto en Normas Internacionales de Información Financiera (NIIF/IFRS). ¿Qué tratamiento contable desea analizar hoy?` }
+            ]);
+            const [loading, setLoading] = useState(false);
+            const bottomRef = useRef(null);
+
+            useEffect(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+
+            const handleSend = async () => {
+                if(!query.trim()) return;
+                
+                const userMsg = { role: 'user', content: query };
+                setMessages(prev => [...prev, userMsg]);
+                setQuery("");
+                setLoading(true);
+
+                try {
+                    // INYECCIÓN DE CONTEXTO CONTABLE (SYSTEM PROMPT VIRTUAL)
+                    const niifContext = `
+                        ACTÚA COMO: Experto Senior en Contabilidad y Auditoría (CPA), especialista en NIIF (IFRS) emitidas por el IASB.
+                        
+                        TU MISIÓN: Explicar tratamientos contables, asientos, revelaciones y estructuras financieras.
+                        
+                        INSTRUCCIONES CLAVE:
+                        1. CITA LA NORMA: Siempre menciona qué NIC (IAS) o NIIF (IFRS) aplica (Ej: "Según el párrafo 9 de la NIC 2...").
+                        2. ESTRUCTURA: Usa formato claro, tablas para asientos contables (Debe/Haber) y listas para revelaciones.
+                        3. CLARIDAD: Explica el concepto técnico y luego da un ejemplo práctico si es necesario.
+                        4. FORMATO: Usa Markdown para dar formato a tu respuesta.
+                        
+                        CONSULTA DEL USUARIO: ${userMsg.content}
+                    `;
+
+                    const response = await fetch(`${DEFAULT_BACKEND_URL}/api/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            message: niifContext, 
+                            // Solo enviamos historial reciente para mantener contexto de la conversación
+                            history: messages.slice(-4).map(m => ({
+                                role: m.role === 'ai' ? 'model' : 'user',
+                                content: m.content
+                            }))
+                        })
+                    });
+
+                    if(!response.ok) throw new Error("Error de servidor");
+                    const data = await response.json();
+                    
+                    setMessages(prev => [...prev, { role: 'ai', content: data.response }]);
+
+                } catch (e) {
+                    setMessages(prev => [...prev, { role: 'ai', content: "⚠️ Error de conexión con el núcleo contable." }]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="flex h-screen bg-slate-50">
+                    
+                    {/* SIDEBAR */}
+                    <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col z-20 shadow-sm">
+                        <div className="h-16 flex items-center px-6 border-b border-slate-100">
+                            <i className="ph ph-chart-polar text-fin-emerald text-xl mr-2"></i>
+                            <span className="font-bold text-slate-700">ABUNDA NIIF</span>
+                        </div>
+                        
+                        <div className="flex-1 p-4 space-y-1 overflow-y-auto">
+                            <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Biblioteca</div>
+                            <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-fin-emerald rounded-lg transition" onClick={() => setQuery("Diferencia entre NIIF Plenas y PYMES")}>
+                                <i className="ph ph-book-bookmark"></i> Marco Conceptual
+                            </button>
+                            <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-fin-emerald rounded-lg transition" onClick={() => setQuery("Estructura del Estado de Situación Financiera según NIC 1")}>
+                                <i className="ph ph-table"></i> Estados Financieros
+                            </button>
+                            <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-fin-emerald rounded-lg transition" onClick={() => setQuery("Tratamiento de NIIF 16 Arrendamientos")}>
+                                <i className="ph ph-calculator"></i> NIIF 16 (Arrendamientos)
+                            </button>
+                             <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-fin-emerald rounded-lg transition" onClick={() => setQuery("Reconocimiento de ingresos NIIF 15")}>
+                                <i className="ph ph-money"></i> NIIF 15 (Ingresos)
+                            </button>
+                        </div>
+
+                        <div className="p-4 border-t border-slate-100">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-8 h-8 rounded-full bg-fin-emerald text-white flex items-center justify-center font-bold text-xs">C</div>
+                                <div className="overflow-hidden">
+                                    <p className="text-xs font-bold text-slate-700 truncate">{user.email}</p>
+                                    <p className="text-[10px] text-emerald-600">Suscripción Activa</p>
+                                </div>
+                            </div>
+                            <button onClick={onLogout} className="w-full py-1 text-xs text-slate-400 hover:text-red-500 transition">Cerrar Sesión</button>
+                        </div>
+                    </aside>
+
+                    {/* CHAT AREA */}
+                    <main className="flex-1 flex flex-col relative">
+                        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
+                            <h2 className="font-bold text-slate-700 flex items-center gap-2">
+                                <i className="ph ph-chat-centered-text text-fin-emerald"></i> Asistente Contable
+                            </h2>
+                            <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded border border-green-200">Base de Datos IASB Conectada</span>
+                        </header>
+
+                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-6">
+                            {messages.map((msg, i) => (
+                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} fade-in`}>
+                                    <div className={`max-w-[85%] md:max-w-[75%] p-6 rounded-2xl shadow-sm text-sm leading-relaxed ${
+                                        msg.role === 'user' 
+                                        ? 'bg-fin-emerald text-white rounded-br-none' 
+                                        : 'bg-white text-slate-700 border border-slate-200 rounded-bl-none prose'
+                                    }`}>
+                                        {msg.role === 'ai' ? (
+                                            <div dangerouslySetInnerHTML={{__html: marked.parse(msg.content)}}></div>
+                                        ) : (
+                                            msg.content
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            {loading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-white p-4 rounded-2xl rounded-bl-none border border-slate-200 flex items-center gap-3">
+                                        <i className="ph ph-calculator text-fin-emerald animate-pulse text-xl"></i>
+                                        <span className="text-xs text-slate-500 font-bold">Calculando tratamiento contable...</span>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={bottomRef}></div>
+                        </div>
+
+                        <div className="p-6 bg-white border-t border-slate-200">
+                            <div className="max-w-4xl mx-auto relative">
+                                <input 
+                                    type="text" 
+                                    value={query}
+                                    onChange={e => setQuery(e.target.value)}
+                                    onKeyPress={e => e.key === 'Enter' && handleSend()}
+                                    className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl pl-5 pr-14 py-4 focus:outline-none focus:border-fin-emerald focus:ring-1 focus:ring-fin-emerald/20 transition shadow-sm placeholder:text-slate-400"
+                                    placeholder="Pregunta sobre una NIIF, asiento o estado financiero..."
+                                    disabled={loading}
+                                    autoFocus
+                                />
+                                <button 
+                                    onClick={handleSend}
+                                    disabled={loading}
+                                    className="absolute right-2 top-2 bottom-2 aspect-square bg-fin-emerald hover:bg-emerald-600 text-white rounded-lg flex items-center justify-center transition disabled:opacity-50"
+                                >
+                                    <i className="ph ph-paper-plane-right-fill text-xl"></i>
+                                </button>
+                            </div>
+                            <p className="text-center text-[10px] text-slate-400 mt-2">La información provista debe ser validada por un profesional certificado.</p>
+                        </div>
+                    </main>
+
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            useEffect(() => {
+                firebase.auth().onAuthStateChanged(u => setUser(u || null));
+            }, []);
+            return <React.Fragment>{!user ? <LoginScreen onLogin={setUser} /> : <Dashboard user={user} onLogout={() => firebase.auth().signOut()} />}</React.Fragment>;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
